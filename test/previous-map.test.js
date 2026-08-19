@@ -134,6 +134,82 @@ it('reads only the last map from annotation', () => {
   expect(root.source.input.map.root).toEqual(dir)
 })
 
+it('does not load annotation without .map extension', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let secret = path.join(dir, 'secret.txt')
+  fs.outputFileSync(secret, 'top secret data')
+  let root = parse('a{}\n/*# sourceMappingURL=secret.txt */', { from: cssFile })
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('does not load annotation with query or hash tricks', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let secret = path.join(dir, 'secret.map.txt')
+  fs.outputFileSync(secret, map)
+  let root = parse(
+    'a{}\n/*# sourceMappingURL=secret.map.txt */', { from: cssFile }
+  )
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('does not load traversed annotation without .map extension', () => {
+  let cssFile = path.join(dir, 'one', 'a.css')
+  let secret = path.join(dir, 'secret.txt')
+  fs.outputFileSync(secret, 'top secret data')
+  let root = parse(
+    'a{}\n/*# sourceMappingURL=../secret.txt */', { from: cssFile }
+  )
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('loads annotation without .map extension on unsafeMap', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let secret = path.join(dir, 'secret.txt')
+  fs.outputFileSync(secret, map)
+  let root = parse('a{}\n/*# sourceMappingURL=secret.txt */', {
+    from: cssFile,
+    unsafeMap: true
+  })
+
+  expect(root.source.input.map.text).toEqual(map)
+  expect(root.source.input.map.root).toEqual(dir)
+})
+
+it('ignores annotation with non-JSON content', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let file = path.join(dir, 'a.css.map')
+  fs.outputFileSync(file, 'top secret data')
+  let root = parse('a{}\n/*# sourceMappingURL=a.css.map */', { from: cssFile })
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('ignores annotation with non-JSON content on unsafeMap', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let secret = path.join(dir, 'secret.txt')
+  fs.outputFileSync(secret, 'top secret data')
+  let root = parse('a{}\n/*# sourceMappingURL=secret.txt */', {
+    from: cssFile,
+    unsafeMap: true
+  })
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('reads map from annotation with XSSI prefix', () => {
+  let cssFile = path.join(dir, 'a.css')
+  let file = path.join(dir, 'a.css.map')
+  fs.outputFileSync(file, ')]}\'\n' + map)
+  let root = parse('a{}\n/*# sourceMappingURL=a.css.map */', { from: cssFile })
+
+  expect(root.source.input.map.root).toEqual(dir)
+  expect(root.source.input.map.consumer() instanceof mozilla.SourceMapConsumer)
+    .toBeTruthy()
+})
+
 it('sets unique name for inline map', () => {
   let map2 = {
     version: 3,

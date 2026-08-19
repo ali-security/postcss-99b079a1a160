@@ -27,6 +27,7 @@ class PreviousMap {
    * @param {processOptions} [opts] {@link Processor#process} options.
    */
   constructor (css, opts) {
+    if (opts.unsafeMap) this.unsafeMap = true
     this.loadAnnotation(css)
     /**
      * Was source map inlined by data-uri to input CSS.
@@ -51,7 +52,7 @@ class PreviousMap {
    */
   consumer () {
     if (!this.consumerCache) {
-      this.consumerCache = new mozilla.SourceMapConsumer(this.text)
+      this.consumerCache = new mozilla.SourceMapConsumer(this.json || this.text)
     }
     return this.consumerCache
   }
@@ -139,9 +140,19 @@ class PreviousMap {
       let map = this.annotation
       if (file) map = path.join(path.dirname(file), map)
 
+      if (!this.unsafeMap && !/\.map$/i.test(map)) {
+        return false
+      }
+
       this.root = path.dirname(map)
       if (fs.existsSync && fs.existsSync(map)) {
-        return fs.readFileSync(map, 'utf-8').toString().trim()
+        let text = fs.readFileSync(map, 'utf-8').toString().trim()
+        try {
+          this.json = JSON.parse(text.replace(/^\)]}'[^\n]*\n/, ''))
+        } catch (e) {
+          return false
+        }
+        return text
       } else {
         return false
       }

@@ -204,6 +204,10 @@ declare namespace postcss {
      */
     to?: string;
     /**
+     * Disable source map file protections.
+     */
+    unsafeMap?: boolean;
+    /**
      * Function to generate AST by string.
      */
     parser?: Parser;
