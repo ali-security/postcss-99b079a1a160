@@ -178,6 +178,44 @@ it('loads annotation without .map extension on unsafeMap', () => {
   expect(root.source.input.map.root).toEqual(dir)
 })
 
+it('does not load map from outside the from folder', () => {
+  let cssFile = path.join(dir, 'subdir', 'a.css')
+  let outside = path.join(dir, 'outside.map')
+  fs.outputFileSync(outside, map)
+  fs.ensureDirSync(path.join(dir, 'subdir'))
+  let root = parse(
+    'a{}\n/*# sourceMappingURL=../outside.map */', { from: cssFile }
+  )
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('does not load map from symlink outside the from folder', () => {
+  if (process.platform === 'win32') return
+
+  let cssFile = path.join(dir, 'subdir', 'a.css')
+  let outside = path.join(dir, 'outside.map')
+  fs.outputFileSync(outside, map)
+  fs.ensureDirSync(path.join(dir, 'subdir'))
+  fs.symlinkSync(outside, path.join(dir, 'subdir', 'link.map'))
+  let root = parse('a{}\n/*# sourceMappingURL=link.map */', { from: cssFile })
+
+  expect(root.source.input.map).not.toBeDefined()
+})
+
+it('loads map from outside the from folder with unsafeMap', () => {
+  let cssFile = path.join(dir, 'subdir', 'a.css')
+  let outside = path.join(dir, 'outside.map')
+  fs.outputFileSync(outside, map)
+  fs.ensureDirSync(path.join(dir, 'subdir'))
+  let root = parse('a{}\n/*# sourceMappingURL=../outside.map */', {
+    from: cssFile,
+    unsafeMap: true
+  })
+
+  expect(root.source.input.map.text).toEqual(map)
+})
+
 it('ignores annotation with non-JSON content', () => {
   let cssFile = path.join(dir, 'a.css')
   let file = path.join(dir, 'a.css.map')

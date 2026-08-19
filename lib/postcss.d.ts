@@ -56,7 +56,10 @@ declare namespace postcss {
   }
   type ParserInput = string | { toString(): string };
   interface Parser {
-    (css: ParserInput, opts?: Pick<ProcessOptions, 'map' | 'from'>): Root;
+    (
+      css: ParserInput,
+      opts?: Pick<ProcessOptions, 'map' | 'from' | 'unsafeMap'>
+    ): Root;
   }
   interface Builder {
     (part: string, node?: Node, type?: 'start' | 'end'): void;
@@ -205,6 +208,9 @@ declare namespace postcss {
     to?: string;
     /**
      * Disable source map file protections.
+     *
+     * By default source map is limited only for `.map` files
+     * in the `from` folder.
      */
     unsafeMap?: boolean;
     /**

@@ -2,6 +2,16 @@ import mozilla from 'source-map'
 import path from 'path'
 import fs from 'fs'
 
+function realPath (file) {
+  try {
+    return fs.realpathSync(file)
+  } catch (e) {
+    // Missing or dangling: keep the literal path. The existsSync() check below
+    // still gates the read, and a path that does not exist cannot escape.
+    return file
+  }
+}
+
 function fromBase64 (str) {
   if (Buffer) {
     return Buffer.from(str, 'base64').toString()
@@ -140,8 +150,20 @@ class PreviousMap {
       let map = this.annotation
       if (file) map = path.join(path.dirname(file), map)
 
-      if (!this.unsafeMap && !/\.map$/i.test(map)) {
-        return false
+      if (!this.unsafeMap) {
+        if (!/\.map$/i.test(map)) return false
+        if (!file) return false
+
+        // Compare *resolved* paths: relative() is textual, so without this a
+        // symlink inside the CSS file's folder could point outside it.
+        let rel = path.relative(realPath(path.dirname(file)), realPath(map))
+        if (
+          rel === '..' ||
+          rel.indexOf('..' + path.sep) === 0 ||
+          path.isAbsolute(rel)
+        ) {
+          return false
+        }
       }
 
       this.root = path.dirname(map)
