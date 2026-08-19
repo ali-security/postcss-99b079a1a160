@@ -171,3 +171,37 @@ it('uses optional raws.indent', () => {
   rule.append({ prop: 'color', value: 'black' })
   expect(rule.toString()).toEqual('a {\n color: black\n}')
 })
+
+it('escapes </style & <!-- with \\3c CSS escape', () => {
+  let root = new Root()
+  root.append(new Rule({ selector: '</style>' }))
+  root.append(new AtRule({ name: 'media', params: '<style>' }))
+  root.append({ text: '</style><!--<style>' })
+  let rule = new Rule({ selector: 'a' })
+  rule.raws.before = '\n</style>'
+  rule.raws.after = '</style>'
+  rule.append(new Declaration({ prop: 'color', value: '</style>' }))
+  root.append(rule)
+
+  expect(root.toString()).toEqual(
+    '\\3c /style> {}\n' +
+      '@media \\3c style>;\n' +
+      '/* \\3c /style>\\3c !--\\3c style> */\n' +
+      'a {\n' +
+      '    color: \\3c /style>' +
+      '\\3c /style>}'
+  )
+})
+
+it('escapes </style in root raws and ignores case', () => {
+  let root = parse('a{color:red}')
+  root.raws.after = '</STYLE><script>alert(1)</script>'
+  expect(root.toString()).toEqual(
+    'a{color:red}\\3c /STYLE><script>alert(1)</script>'
+  )
+})
+
+it('does not escape tags other than style', () => {
+  let root = parse('a{content:"<styles> <stylesheet <div>"}')
+  expect(root.toString()).toEqual('a{content:"<styles> <stylesheet <div>"}')
+})
