@@ -1,27 +1,56 @@
 name: Test
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: Optional jest test filter
+        required: false
+        default: ''
 env:
   FORCE_COLOR: 2
 jobs:
   full:
     name: Node.js 16 Full
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      - name: Configure npm time machine registry
+        run: npm config set registry https://:2021-10-04T20%3A12%3A34.113000Z@time-machines-npm.sealsecurity.io/
       - name: Checkout the repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
+        run: yarn install --frozen-lockfile
       - name: Run tests
-        run: yarn test
+        run: |
+          if [ -n "${{ inputs.test-filter }}" ]; then
+            npx gulp
+            npx jest --ci ${{ inputs.test-filter }}
+          else
+            yarn test
+          fi
+      - name: Pack release tarball
+        run: |
+          cd build
+          node ../node_modules/.bin/clean-publish --without-publish --files docs --clean-docs
+          CLEANED=$(find . -maxdepth 1 -type d -name 'tmp*' -print -quit)
+          cd "$CLEANED"
+          npm pack --ignore-scripts
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp postcss-7.0.39.tgz "$GITHUB_WORKSPACE/dist/"
+      - name: Upload release tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: dist/postcss-*.tgz
+          if-no-files-found: error
   short:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version:
           - 14
@@ -30,31 +59,36 @@ jobs:
           - 8
           - 6
     name: Node.js ${{ matrix.node-version }} Quick
+    timeout-minutes: 30
     steps:
+      - name: Configure npm time machine registry
+        run: npm config set registry https://:2021-10-04T20%3A12%3A34.113000Z@time-machines-npm.sealsecurity.io/
       - name: Checkout the repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
       - name: Install dependencies
-        uses: bahmutov/npm-install@v1
-        with:
-          install-command: yarn --frozen-lockfile --ignore-engines
+        run: yarn install --frozen-lockfile --ignore-engines
       - name: Compile project
-        run: npx gulp compile
+        run: node ./node_modules/.bin/gulp compile
       - name: Run unit tests
-        run: npx jest
+        run: node ./node_modules/.bin/jest ${{ inputs.test-filter }}
   windows:
     runs-on: windows-latest
     name: Windows Quick
+    timeout-minutes: 30
     env:
       YARN_GPG: "no"
     steps:
+      - name: Configure npm time machine registry
+        shell: bash
+        run: npm config set registry https://:2021-10-04T20%3A12%3A34.113000Z@time-machines-npm.sealsecurity.io/
       - name: Checkout the repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install Node.js LTS
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: Install dependencies
@@ -62,4 +96,5 @@ jobs:
       - name: Compile project
         run: npx gulp compile
       - name: Run unit tests
-        run: npx jest
+        shell: bash
+        run: npx jest ${{ inputs.test-filter }}
